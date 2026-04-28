@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Foto a PDF</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- Google API + Google Identity Services -->
+  <script async defer src="https://apis.google.com/js/api.js"></script>
+  <script async defer src="https://accounts.google.com/gsi/client"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>Foto a PDF</h1>
+        <p>Toma varias fotos, únelas en un PDF y luego súbelo a Drive.</p>
+      </div>
+    </header>
+
+    <section class="camera-card">
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas" class="hidden"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="startCameraBtn" class="btn primary">Abrir cámara</button>
+        <button id="captureBtn" class="btn" disabled>Tomar foto</button>
+        <button id="switchCameraBtn" class="btn" disabled>Cambiar cámara</button>
+        <button id="stopCameraBtn" class="btn danger" disabled>Cerrar cámara</button>
+      </div>
+
+      <div class="pdf-actions">
+        <button id="generatePdfBtn" class="btn success" disabled>Generar PDF</button>
+        <button id="uploadDriveBtn" class="btn warning" disabled>Subir a Drive</button>
+        <button id="clearPhotosBtn" class="btn secondary" disabled>Limpiar fotos</button>
+      </div>
+
+      <p id="status" class="status">Estado: esperando acción</p>
+    </section>
+
+    <section class="gallery-card">
+      <div class="gallery-header">
+        <h2>Fotos capturadas</h2>
+        <span id="photoCount">0 fotos</span>
+      </div>
+      <div id="gallery" class="gallery"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
