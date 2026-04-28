@@ -186,7 +186,7 @@ function clearPhotos() {
    Debes reemplazar CLIENT_ID por el tuyo.
    También debes habilitar Google Drive API en Google Cloud.
 */
-const CLIENT_ID = "TU_CLIENT_ID_AQUI";
+const CLIENT_ID = "316174189750-auumsrhlf67pjjh0gjei3phf04mg184o.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
 let tokenClient;
