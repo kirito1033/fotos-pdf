@@ -69,15 +69,64 @@ async function switchCamera() {
   await startCamera();
 }
 
-function capturePhoto() {
+async function capturePhoto() {
   if (!stream) return;
+
+  setStatus("obteniendo ubicación y clima...");
+
+  const location = await getCurrentLocation();
+  let weather = null;
+
+  if (location) {
+    weather = await getWeather(location.latitude, location.longitude);
+  }
 
   const context = canvas.getContext("2d");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+  const now = new Date();
+  const fecha = now.toLocaleDateString();
+  const hora = now.toLocaleTimeString();
+
+  const lines = [
+    "WEFONE",
+    `Fecha: ${fecha}`,
+    `Hora: ${hora}`,
+    location
+      ? `Lugar: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+      : "Lugar: no disponible",
+    weather
+      ? `Clima: ${weather.condition} - ${weather.temperature}°C`
+      : "Clima: no disponible"
+  ];
+
+  const fontSize = Math.max(18, Math.floor(canvas.width * 0.022));
+  const lineHeight = fontSize + 8;
+  const padding = 20;
+  const boxWidth = canvas.width * 0.52;
+  const boxHeight = lines.length * lineHeight + padding * 2;
+  const boxX = canvas.width - boxWidth - 20;
+  const boxY = canvas.height - boxHeight - 20;
+
+  context.globalAlpha = 0.72;
+  context.fillStyle = "rgba(0, 0, 0, 0.55)";
+  context.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+  context.globalAlpha = 1;
+  context.fillStyle = "#ffffff";
+  context.font = `bold ${fontSize}px Arial`;
+  context.textAlign = "left";
+  context.textBaseline = "top";
+
+  lines.forEach((line, index) => {
+    context.fillText(line, boxX + padding, boxY + padding + index * lineHeight);
+  });
+
   const imageData = canvas.toDataURL("image/jpeg", 0.92);
+
   photos.push({
     id: Date.now(),
     dataUrl: imageData
@@ -85,90 +134,7 @@ function capturePhoto() {
 
   pdfBlob = null;
   renderGallery();
-  setStatus(`foto capturada (${photos.length})`);
-  updateButtons();
-}
-
-function renderGallery() {
-  gallery.innerHTML = "";
-
-  photos.forEach((photo, index) => {
-    const item = document.createElement("div");
-    item.className = "photo-item";
-
-    item.innerHTML = `
-      <img src="${photo.dataUrl}" alt="Foto ${index + 1}">
-      <div class="photo-meta">Foto ${index + 1}</div>
-    `;
-
-    gallery.appendChild(item);
-  });
-
-  updateButtons();
-}
-
-function fitImageInPage(imgWidth, imgHeight, pageWidth, pageHeight, margin = 10) {
-  const maxWidth = pageWidth - margin * 2;
-  const maxHeight = pageHeight - margin * 2;
-
-  let renderWidth = maxWidth;
-  let renderHeight = (imgHeight * renderWidth) / imgWidth;
-
-  if (renderHeight > maxHeight) {
-    renderHeight = maxHeight;
-    renderWidth = (imgWidth * renderHeight) / imgHeight;
-  }
-
-  const x = (pageWidth - renderWidth) / 2;
-  const y = (pageHeight - renderHeight) / 2;
-
-  return { x, y, renderWidth, renderHeight };
-}
-
-async function generatePdf() {
-  if (!photos.length) {
-    alert("No hay fotos para generar el PDF.");
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
-
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-
-  for (let i = 0; i < photos.length; i++) {
-    const img = new Image();
-    img.src = photos[i].dataUrl;
-
-    await new Promise((resolve) => {
-      img.onload = resolve;
-    });
-
-    if (i > 0) {
-      pdf.addPage();
-    }
-
-    const { x, y, renderWidth, renderHeight } = fitImageInPage(
-      img.width,
-      img.height,
-      pageWidth,
-      pageHeight
-    );
-
-    pdf.addImage(photos[i].dataUrl, "JPEG", x, y, renderWidth, renderHeight);
-  }
-
-  pdfBlob = pdf.output("blob");
-
-  const fileName = `fotos_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.pdf`;
-  pdf.save(fileName);
-
-  setStatus("PDF generado y descargado");
+  setStatus(`foto capturada con marca WEFONE (${photos.length})`);
   updateButtons();
 }
 
@@ -214,6 +180,74 @@ function initializeGoogleClients() {
       clearInterval(gisInterval);
     }
   }, 500);
+}
+
+async function getCurrentLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  });
+}
+
+async function getWeather(latitude, longitude) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const temp = data?.current?.temperature_2m;
+    const code = data?.current?.weather_code;
+
+    return {
+      temperature: temp ?? "N/D",
+      condition: getWeatherDescription(code)
+    };
+  } catch (error) {
+    console.error("Error consultando clima:", error);
+    return null;
+  }
+}
+
+function getWeatherDescription(code) {
+  const map = {
+    0: "Despejado",
+    1: "Mayormente despejado",
+    2: "Parcial nublado",
+    3: "Nublado",
+    45: "Niebla",
+    48: "Niebla con escarcha",
+    51: "Llovizna ligera",
+    53: "Llovizna moderada",
+    55: "Llovizna intensa",
+    61: "Lluvia ligera",
+    63: "Lluvia moderada",
+    65: "Lluvia fuerte",
+    71: "Nieve ligera",
+    73: "Nieve moderada",
+    75: "Nieve fuerte",
+    80: "Chubascos ligeros",
+    81: "Chubascos moderados",
+    82: "Chubascos fuertes",
+    95: "Tormenta"
+  };
+  return map[code] || "Clima no disponible";
 }
 
 async function uploadToDrive() {
